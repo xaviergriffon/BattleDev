@@ -1,18 +1,27 @@
 package com.isograd.exercise;
 
 import java.io.*;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
-import java.util.Calendar;
-import java.util.List;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class RunTestWithData {
+
+    private static final Integer forceTestNum = null;
 
     private static final int WARN_TIME = 30;
     private static final int WARN_MEMORY_MO = 5;
 
     private static final double MEGABYTE = 1024d * 1024d;
+
+    private static Pattern inputFilePattern = Pattern.compile ("input([0-9]*)\\.txt");
+
     /*
      * Palette de couleur pour la console
      */
@@ -41,35 +50,89 @@ public class RunTestWithData {
          * les entrées de l'exercice et comparer les sorties aux attentes.
          */
         PrintStream originalOut = System.out;
-        RunTestPrintStream runTestPrintStream = new RunTestPrintStream(originalOut, "dataOutputExpected.txt");
-        System.setOut(runTestPrintStream);
         InputStream originalIn = System.in;
-        System.setIn(RunTestWithData.class
-                .getClassLoader()
-                .getResourceAsStream("dataInput.txt"));
+        List<String> inputs = getResourceInputs();
+        for (String inputfileName : inputs) {
 
-        Runtime runtime = Runtime.getRuntime();
-        runtime.gc();
-        Calendar startTime = Calendar.getInstance();
-        long memory = runtime.totalMemory() - runtime.freeMemory();
-        IsoContest.main(null);
-        long usedMemory = (runtime.totalMemory() - runtime.freeMemory()) - memory;
-        Calendar endTime = Calendar.getInstance();
+            try {
+                int nInput = Integer.valueOf(matchFirstGroup(inputFilePattern, inputfileName));
 
-        // Redéfinition des Entrées/Sorties avec leurs valeurs originales.
-        System.setOut(originalOut);
-        System.setIn(originalIn);
+                if (forceTestNum != null && !forceTestNum.equals(nInput)) {
+                    continue;
+                }
+                System.out.println("Test n: " + nInput);
 
-        // Indicateurs d'exécutions
-        checkMemoryUsage(usedMemory);
-        checkExecutionTime(endTime.getTimeInMillis() - startTime.getTimeInMillis());
+                RunTestPrintStream runTestPrintStream = new RunTestPrintStream(originalOut, "output"+nInput+".txt");
+                System.setOut(runTestPrintStream);
 
-        // Résultat
-        if (runTestPrintStream.isAllExpectedLinesProvided()) {
-            println(ConsoleColor.ANSI_BLUE, "Success !");
-        } else {
-            println(ConsoleColor.ANSI_RED, "Failed challenge :(");
+                System.setIn(RunTestWithData.class
+                        .getClassLoader()
+                        .getResourceAsStream(inputfileName));
+
+                Runtime runtime = Runtime.getRuntime();
+                runtime.gc();
+                Calendar startTime = Calendar.getInstance();
+                long memory = runtime.totalMemory() - runtime.freeMemory();
+                IsoContest.main(null);
+                long usedMemory = (runtime.totalMemory() - runtime.freeMemory()) - memory;
+                Calendar endTime = Calendar.getInstance();
+
+                // Redéfinition des Entrées/Sorties avec leurs valeurs originales.
+                System.setOut(originalOut);
+                System.setIn(originalIn);
+
+                // Indicateurs d'exécutions
+                checkMemoryUsage(usedMemory);
+                checkExecutionTime(endTime.getTimeInMillis() - startTime.getTimeInMillis());
+                // Résultat
+                if (runTestPrintStream.isAllExpectedLinesProvided()) {
+                    println(ConsoleColor.ANSI_BLUE, "Success !");
+                } else {
+                    println(ConsoleColor.ANSI_RED, "Failed challenge :(");
+                }
+            }catch (Exception e) {
+                System.setOut(originalOut);
+                System.setIn(originalIn);
+                println(ConsoleColor.ANSI_RED, "Failed challenge :(");
+                e.printStackTrace();
+            }
         }
+    }
+
+    private static List<String> getResourceInputs () {
+        List<String> results = new ArrayList<>();
+        ClassLoader loader = RunTestWithData.class
+                .getClassLoader();
+        URL url = loader.getResource("input1.txt");
+        File file = new File(url.getPath());
+        String path = file.getParent();
+
+        for (String fileName : listFiles(path)) {
+            if (inputFilePattern.matcher(fileName).find()) {
+                results.add(fileName);
+            }
+        }
+
+        results = results.stream().sorted((f1, f2) -> {
+                Integer i1 = Integer.valueOf(matchFirstGroup(inputFilePattern, f1));
+                Integer i2 = Integer.valueOf(matchFirstGroup(inputFilePattern, f2));
+                return i1.compareTo(i2);
+            })
+                .collect(Collectors.toList());
+        return results;
+    }
+
+    private static String matchFirstGroup(Pattern pattern, String input) {
+        Matcher match = pattern.matcher(input);
+        match.find();
+        return match.group(1);
+    }
+
+    public static Set<String> listFiles(String dir) {
+        return Stream.of(new File(dir).listFiles())
+                .filter(file -> !file.isDirectory())
+                .map(File::getName)
+                .collect(Collectors.toSet());
     }
 
     private static void checkExecutionTime(long timeInMillis) {
