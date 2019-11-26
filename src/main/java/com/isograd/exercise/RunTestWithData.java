@@ -1,8 +1,10 @@
 package com.isograd.exercise;
 
 import java.io.*;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.util.*;
@@ -170,10 +172,11 @@ public class RunTestWithData {
         int nBadOut;
         boolean allExpectedLinesProvided = false;
 
-        public RunTestPrintStream(OutputStream out, String dataOuputExpectedFile) throws IOException {
+        public RunTestPrintStream(OutputStream out, String dataOuputExpectedFile) throws IOException, URISyntaxException {
             super(out);
-            allLinesExpected = Files.readAllLines(Paths.get(getClass()
-                    .getClassLoader().getResource(dataOuputExpectedFile).getPath()));
+            File file = new File(getClass()
+                    .getClassLoader().getResource(dataOuputExpectedFile).toURI());
+            allLinesExpected = Files.readAllLines(file.toPath());
         }
 
         // --- Toutes méthodes println doivent utiliser println(String x)
